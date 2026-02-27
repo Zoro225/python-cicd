@@ -7,23 +7,23 @@ pipeline {
 
     stages {
 
-        stage('Clone Repository') {
+        stage('Checkout Repository') {
             steps {
                 git branch: 'master',
                     url: 'https://github.com/Zoro225/python-cicd.git'
             }
         }
 
-        stage('Install Dependencies') {
-            steps {
-                sh 'python3 -m venv venv'
-                sh '. venv/bin/activate && pip install -r requirements.txt'
-            }
-        }
-
         stage('Run Tests') {
             steps {
-                sh '. venv/bin/activate && pytest'
+                echo "Running tests inside Python Docker container..."
+                sh '''
+                    docker run --rm \
+                        -v $PWD:/app \
+                        -w /app \
+                        python:3.12-slim \
+                        bash -c "pip install --upgrade pip && pip install -r requirements.txt && pytest"
+                '''
             }
         }
 
@@ -44,10 +44,13 @@ pipeline {
 
         stage('Deploy Container') {
             steps {
-                sh 'docker stop python-app || true'
-                sh 'docker rm python-app || true'
-                sh 'docker run -d -p 5000:5000 --name python-app $IMAGE_NAME:latest'
+                sh '''
+                    docker stop python-app || true
+                    docker rm python-app || true
+                    docker run -d -p 5000:5000 --name python-app $IMAGE_NAME:latest
+                '''
             }
         }
-    }
+
+    } // end stages
 }
